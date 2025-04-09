@@ -87,3 +87,25 @@ for i in range(0, len(filtered), 2):
                     else:
                         st.info("No client config available.")
     st.markdown("---")
+    # Inject custom CSS for sticky footer
+st.markdown("""
+    <style>
+        .footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: #f3f6fc;
+            color: #333;
+            text-align: center;
+            padding: 10px;
+            font-size: 0.9rem;
+            border-top: 1px solid #ddd;
+            z-index: 100;
+        }
+    </style>
+    <div class="footer">
+        ℹ️ All data shown here is scraped from public GitHub repositories.  
+        🛠️ Developed with ❤️ by <a href="https://github.com/Harika-BV" target="_blank">Harika B V</a>
+    </div>
+""", unsafe_allow_html=True)
