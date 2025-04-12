@@ -114,8 +114,15 @@ def index_documents(data, index_name="mcpverse", batch_size=10):
 
     actions = []
 
+    MAX_CHARS = 24000  
+
     for item in tqdm(data):
         content = f"{item['name']} {item.get('description', '')} {item.get('readme', '')}"
+        
+        # Trim content if too long
+        if len(content) > MAX_CHARS:
+            content = content[:MAX_CHARS]
+
         embedding = generate_embedding(content)
         if not embedding:
             continue
@@ -134,12 +141,12 @@ def index_documents(data, index_name="mcpverse", batch_size=10):
 
         # Send in batches
         if len(actions) >= batch_size:
-            elastic_helpers.bulk(opensearch_client, actions, index=index_name)
+            elastic_helpers.bulk(opensearch_client, actions, index=index_name,raise_on_error=False)
             actions = []
 
     # Index remaining
     if actions:
-        elastic_helpers.bulk(opensearch_client, actions, index=index_name)
+        elastic_helpers.bulk(opensearch_client, actions, index=index_name,raise_on_error=False)
 
     print("✅ Indexing completed.")
 
