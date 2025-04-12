@@ -1,18 +1,16 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import streamlit as st
 import requests
 import json, os
+from backend.embedder import search_opensearch, get_total_indexed_docs, get_all_repos
 
 st.set_page_config(page_title="MCPverse", layout="wide")
 
-@st.cache_data(ttl=3600)
 def load_data():
-    if os.getenv("ENV") == "local":
-        with open("../backend/data/mcpverse_data.json", "r") as f:
-            return json.load(f)
-    else:
-        url = "https://raw.githubusercontent.com/Harika-BV/mcpverse/main/backend/data/mcpverse_data.json"
-        response = requests.get(url)
-        return response.json()
+    return get_all_repos(size=200)  # or any number you prefer
 
 repos = load_data()
 # ---------- CSS Styling ----------
@@ -45,11 +43,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------- Title & Search ----------
-st.title("🔍 MCPverse — Discover MCP Servers")
+total = get_total_indexed_docs()
+st.title(f"🔍 MCPverse — Discover MCP Servers ({total} indexed)")
 search = st.text_input("Search repositories...")
 
 # ---------- Filtered Results ----------
-filtered = [r for r in repos if search.lower() in r["name"].lower() or search.lower() in r.get("description", "").lower()]
+# filtered = [r for r in repos if search.lower() in r["name"].lower() or search.lower() in r.get("description", "").lower()]
+filtered = search_opensearch(search)
 
 # ---------- Display Cards ----------
 for i in range(0, len(filtered), 2):

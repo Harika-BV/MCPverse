@@ -9,6 +9,15 @@ jobs:
   update:
     runs-on: ubuntu-latest
 
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      OPENSEARCH_HOST: ${{ secrets.OPENSEARCH_HOST }}
+      OPENSEARCH_PORT: ${{ secrets.OPENSEARCH_PORT }}
+      OPENSEARCH_USER: ${{ secrets.OPENSEARCH_USER }}
+      OPENSEARCH_PASS: ${{ secrets.OPENSEARCH_PASS }}
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -22,12 +31,15 @@ jobs:
       run: pip install -r requirements.txt
 
     - name: Run scraper
-      run: python backend/main.py
+      run: python backend/fetch_repos.py
+    
+    - name: Run embedding and opensearch indexer
+      run: python backend/embedder.py
 
     - name: Commit and push updated data
       run: |
         git config --global user.name "github-actions"
         git config --global user.email "actions@github.com"
-        git add backend/data/mcpverse_data.json
+        git add data/mcpverse_data.json
         git commit -m "🔄 Auto-update MCP repo data" || echo "No changes"
         git push

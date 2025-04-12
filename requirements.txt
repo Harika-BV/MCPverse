@@ -2,3 +2,5 @@ streamlit
 requests
 PyGithub
 python-dotenv
+opensearch-py
+openai
