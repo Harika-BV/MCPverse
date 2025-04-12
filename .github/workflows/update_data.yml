@@ -33,9 +33,6 @@ jobs:
     - name: Run scraper
       run: python backend/fetch_repos.py
     
-    - name: Run embedding and opensearch indexer
-      run: python backend/embedder.py
-
     - name: Commit and push updated data
       run: |
         git config --global user.name "github-actions"
@@ -43,3 +40,6 @@ jobs:
         git add data/mcpverse_data.json
         git commit -m "🔄 Auto-update MCP repo data" || echo "No changes"
         git push
+
+    - name: Run embedding and opensearch indexer
+      run: python backend/embedder.py
