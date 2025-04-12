@@ -4,3 +4,4 @@ PyGithub
 python-dotenv
 opensearch-py
 openai
+elasticsearch
