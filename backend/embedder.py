@@ -1,10 +1,12 @@
 import json
 import os
 import time
-from openai import OpenAI
 from opensearchpy import OpenSearch, helpers
+from openai import OpenAI
 from tqdm import tqdm
 from dotenv import load_dotenv
+from elasticsearch import Elasticsearch
+from elasticsearch import helpers as elastic_helpers
 
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -35,33 +37,60 @@ def get_opensearch_client():
     port = int(os.getenv("OPENSEARCH_PORT", "9200"))
     user = os.getenv("OPENSEARCH_USER", "admin")
     password = os.getenv("OPENSEARCH_PASS", "admin")
-
-    return OpenSearch(
-        hosts=[{"host": host, "port": port}],
-        http_auth=(user, password),
-        use_ssl=False,
-        verify_certs=False
-    )
+    ELASTICSEARCH_HOST = os.getenv("ELASTICSEARCH_HOST")
+    ELASTICSEARCH_KEY = os.getenv("ELASTICSEARCH_KEY")
+    if ELASTICSEARCH_HOST:
+        return Elasticsearch(
+            ELASTICSEARCH_HOST,
+            api_key=ELASTICSEARCH_KEY
+        )
+    
+    else:
+        return OpenSearch(
+            hosts=[{"host": host, "port": port}],
+            http_auth=(user, password),
+            use_ssl=False,
+            verify_certs=False
+        )
 
 
 # Create index if not exists
 def create_index(client, index_name):
-    index_body ={
-            "settings": {
-                "index.knn": True
-            },
-            "mappings": {
-                "properties": {
-                    "name": {"type": "text"},
-                    "description": {"type": "text"},
-                    "url": {"type": "keyword"},
-                    "embedding": {
-                        "type": "knn_vector",
-                        "dimension": 1536
+    if os.getenv("ELASTICSEARCH_HOST"):
+        index_body = {
+                "mappings": {
+                    "properties": {
+                         "name": {"type": "text"},
+                        "description": {"type": "text"},
+                        "url": {"type": "keyword"},
+                        "embedding": {
+                            "type": "dense_vector",
+                            "dims": 1536,
+                            "index": True,
+                            "similarity": "cosine"
+                        }
+                    }
+                }
+        }
+
+    else:
+        index_body ={
+                "settings": {
+                    "index.knn": True
+                },
+                "mappings": {
+                    "properties": {
+                        "name": {"type": "text"},
+                        "description": {"type": "text"},
+                        "url": {"type": "keyword"},
+                        "embedding": {
+                            "type": "knn_vector",
+                            "dimension": 1536
+                        }
                     }
                 }
             }
-        }
+        
     if client.indices.exists(index=index_name):
         print(f"Deleting existing index: {index_name}")
         client.indices.delete(index=index_name)
@@ -71,7 +100,7 @@ def create_index(client, index_name):
     client.indices.create(index=index_name, body=index_body)
 
 # Prepare and index documents in bulk
-def index_documents(data, index_name="mcpverse-index", batch_size=10):
+def index_documents(data, index_name="mcpverse", batch_size=10):
     opensearch_client = get_opensearch_client()
     create_index(opensearch_client, index_name)
 
@@ -96,16 +125,16 @@ def index_documents(data, index_name="mcpverse-index", batch_size=10):
 
         # Send in batches
         if len(actions) >= batch_size:
-            helpers.bulk(opensearch_client, actions)
+            elastic_helpers.bulk(opensearch_client, actions, index=index_name)
             actions = []
 
     # Index remaining
     if actions:
-        helpers.bulk(opensearch_client, actions)
+        elastic_helpers.bulk(opensearch_client, actions, index=index_name)
 
     print("✅ Indexing completed.")
 
-def search_opensearch(query, index_name="mcpverse-index"):
+def search_opensearch(query, index_name="mcpverse"):
     opensearch_client = get_opensearch_client()
 
     embedding = client.embeddings.create(
@@ -143,12 +172,12 @@ def search_opensearch(query, index_name="mcpverse-index"):
     hits = response["hits"]["hits"]
     return [hit["_source"] for hit in hits]
 
-def get_total_indexed_docs(index_name="mcpverse-index"):
+def get_total_indexed_docs(index_name="mcpverse"):
     client = get_opensearch_client()
     stats = client.count(index=index_name)
     return stats["count"]
 
-def get_all_repos(index_name="mcpverse-index", size=100):
+def get_all_repos(index_name="mcpverse", size=100):
     client = get_opensearch_client()
     response = client.search(
         index=index_name,
