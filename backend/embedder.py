@@ -138,19 +138,39 @@ def search(query, index_name="mcpverse"):
     query_embedding = [v / norm for v in embedding]
 
     if client_type == "elasticsearch":
-        search_query = {
+        search_query ={
             "size": 50,
             "query": {
-                "script_score": {
-                    "query": {"match_all": {}},
-                    "script": {
-                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
-                        "params": {"query_vector": query_embedding}
-                    }
+                "bool": {
+                    "should": [
+                        {
+                            "script_score": {
+                                "query": {
+                                    "match_all": {}
+                                },
+                                "script": {
+                                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                                    "params": {
+                                        "query_vector": query_embedding
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "multi_match": {
+                                "query": query,
+                                "fields": [
+                                    "name^2",
+                                    "description",
+                                    "readme"
+                                ],
+                                "fuzziness": "AUTO"
+                            }
+                        }
+                    ]
                 }
             }
         }
-
     elif client_type == "opensearch":
         search_query = {
             "size": 50,
