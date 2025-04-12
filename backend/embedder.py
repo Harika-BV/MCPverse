@@ -1,5 +1,6 @@
 import json
 import os
+import numpy as np
 import time
 from opensearchpy import OpenSearch, helpers
 from openai import OpenAI
@@ -60,9 +61,13 @@ def create_index(client, index_name):
         index_body = {
                 "mappings": {
                     "properties": {
-                         "name": {"type": "text"},
+                        "name": {"type": "text"},
                         "description": {"type": "text"},
                         "url": {"type": "keyword"},
+                        "client_config": {
+                            "type" : "object",
+                            "enabled" : True
+                        },
                         "embedding": {
                             "type": "dense_vector",
                             "dims": 1536,
@@ -83,6 +88,9 @@ def create_index(client, index_name):
                         "name": {"type": "text"},
                         "description": {"type": "text"},
                         "url": {"type": "keyword"},
+                         "client_config": {
+                            "type" : "text"
+                        },
                         "embedding": {
                             "type": "knn_vector",
                             "dimension": 1536
@@ -118,6 +126,7 @@ def index_documents(data, index_name="mcpverse", batch_size=10):
                 "name": item["name"],
                 "description": item.get("description", ""),
                 "url": item["url"],
+                "client_config": item.get("client_config", {}),
                 "embedding": embedding,
             }
         }
@@ -142,33 +151,27 @@ def search_opensearch(query, index_name="mcpverse"):
         model="text-embedding-ada-002"
     ).data[0].embedding
 
-    hybrid_query = {
-            "size": 10,
-            "query": {
-                "bool": {
-                    "should": [
-                        {
-                            "knn": {
-                                "embedding": {
-                                    "vector": embedding,
-                                    "k": 10
-                                }
-                            }
-                        },
-                        {
-                            "multi_match": {
-                                "query": query,
-                                "fields": ["name^2", "description", "readme"],
-                                "fuzziness": "AUTO"
-                            }
-                        }
-                    ]
+    norm = np.linalg.norm(embedding)
+    query_embedding = [v / norm for v in embedding]
+
+    search_query = {
+        "size": 10,
+        "query": {
+            "script_score": {
+                "query": {
+                    "match_all": {}
+                },
+                "script": {
+                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                    "params": {
+                        "query_vector": query_embedding
+                    }
                 }
             }
         }
+    }
 
-
-    response = opensearch_client.search(index=index_name, body=hybrid_query)
+    response = opensearch_client.search(index=index_name, body=search_query)
     hits = response["hits"]["hits"]
     return [hit["_source"] for hit in hits]
 
