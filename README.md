@@ -65,7 +65,7 @@ pip install -r requirements.txt
 Create a `.env` file in the root:
 
 ```
-GITHUB_TOKEN=your-github-token
+GH_API_KEY=your-github-token
 ENV=local
 OPENAI_API_KEY=your-openai-key
 OPENSEARCH_HOST=localhost

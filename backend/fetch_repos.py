@@ -16,10 +16,10 @@ start_time = time.time()
 
 # Load environment variables
 load_dotenv()
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GH_API_KEY = os.getenv("GH_API_KEY")
 
 # Initialize GitHub client
-g = Github(GITHUB_TOKEN)
+g = Github(GH_API_KEY)
 
 # Create data folder if not exists
 data_path = Path("data")
