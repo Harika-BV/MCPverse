@@ -39,8 +39,8 @@ def get_search_client():
         return "opensearch", OpenSearch(
             hosts=[{"host": os.getenv("OPENSEARCH_HOST", "localhost"), "port": int(os.getenv("OPENSEARCH_PORT", 9200))}],
             http_auth=(os.getenv("OPENSEARCH_USER", "admin"), os.getenv("OPENSEARCH_PASS", "admin")),
-            use_ssl=False,
-            verify_certs=False
+            use_ssl=True,
+            verify_certs=True
         )
 
 def create_index(client_type, client, index_name):
