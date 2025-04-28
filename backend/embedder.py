@@ -222,14 +222,22 @@ def search(query, index_name="mcpverse"):
 
 
 def get_total_indexed_docs(index_name="mcpverse"):
-    _, client = get_search_client()
-    stats = client.count(index=index_name)
-    return stats["count"]
+    all_repos = load_mcp_data()
+    if os.getenv("VECTOR_ENABLED") == "False":
+        return len(all_repos)
+    else:
+        _, client = get_search_client()
+        stats = client.count(index=index_name)
+        return stats["count"]
 
 def get_all_repos(index_name="mcpverse", size=100):
-    _, client = get_search_client()
-    res = client.search(index=index_name, body={"size": size, "query": {"match_all": {}}})
-    return [hit["_source"] for hit in res["hits"]["hits"]]
+    all_repos = load_mcp_data()
+    if os.getenv("VECTOR_ENABLED") == "False":
+        return all_repos
+    else:
+        _, client = get_search_client()
+        res = client.search(index=index_name, body={"size": size, "query": {"match_all": {}}})
+        return [hit["_source"] for hit in res["hits"]["hits"]]
 
 if __name__ == "__main__":
     start = time.time()
