@@ -131,77 +131,94 @@ def index_documents(data, index_name="mcpverse", batch_size=10):
     print("✅ Indexing completed.")
 
 def search(query, index_name="mcpverse"):
-    client_type, client = get_search_client()
+    all_repos = load_mcp_data()
+    if os.getenv("VECTOR_ENABLED") == "False":
+        if not query:
+            return all_repos
 
-    embedding = generate_embedding(query)
-    norm = np.linalg.norm(embedding)
-    query_embedding = [v / norm for v in embedding]
+        query = query.lower()
+        results = []
+        for repo in all_repos:
+            text = " ".join([
+                repo.get('name', ''),
+                repo.get('description', ''),
+                repo.get('readme', '')
+            ]).lower()
+            if query in text:
+                results.append(repo)
+        return results
+    else:
+        client_type, client = get_search_client()
 
-    if client_type == "elasticsearch":
-        search_query ={
-            "size": 50,
-            "query": {
-                "bool": {
-                    "should": [
-                        {
-                            "script_score": {
-                                "query": {
-                                    "match_all": {}
-                                },
-                                "script": {
-                                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
-                                    "params": {
-                                        "query_vector": query_embedding
+        embedding = generate_embedding(query)
+        norm = np.linalg.norm(embedding)
+        query_embedding = [v / norm for v in embedding]
+
+        if client_type == "elasticsearch":
+            search_query ={
+                "size": 50,
+                "query": {
+                    "bool": {
+                        "should": [
+                            {
+                                "script_score": {
+                                    "query": {
+                                        "match_all": {}
+                                    },
+                                    "script": {
+                                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                                        "params": {
+                                            "query_vector": query_embedding
+                                        }
                                     }
                                 }
-                            }
-                        },
-                        {
-                            "multi_match": {
-                                "query": query,
-                                "fields": [
-                                    "name^2",
-                                    "description",
-                                    "readme"
-                                ],
-                                "fuzziness": "AUTO"
-                            }
-                        }
-                    ]
-                }
-            }
-        }
-    elif client_type == "opensearch":
-        search_query = {
-            "size": 50,
-            "query": {
-                "bool": {
-                    "should": [
-                        {
-                            "knn": {
-                                "embedding": {
-                                    "vector": embedding,
-                                    "k": 10
+                            },
+                            {
+                                "multi_match": {
+                                    "query": query,
+                                    "fields": [
+                                        "name^2",
+                                        "description",
+                                        "readme"
+                                    ],
+                                    "fuzziness": "AUTO"
                                 }
                             }
-                        },
-                        {
-                            "multi_match": {
-                                "query": query,
-                                "fields": ["name^2", "description", "readme"],
-                                "fuzziness": "AUTO"
-                            }
-                        }
-                    ]
+                        ]
+                    }
                 }
             }
-        }
+        elif client_type == "opensearch":
+            search_query = {
+                "size": 50,
+                "query": {
+                    "bool": {
+                        "should": [
+                            {
+                                "knn": {
+                                    "embedding": {
+                                        "vector": embedding,
+                                        "k": 10
+                                    }
+                                }
+                            },
+                            {
+                                "multi_match": {
+                                    "query": query,
+                                    "fields": ["name^2", "description", "readme"],
+                                    "fuzziness": "AUTO"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
 
-    else:
-        raise ValueError("Unsupported client type")
+        else:
+            raise ValueError("Unsupported client type")
 
-    res = client.search(index=index_name, body=search_query)
-    return [hit["_source"] for hit in res["hits"]["hits"]]
+        res = client.search(index=index_name, body=search_query)
+        return [hit["_source"] for hit in res["hits"]["hits"]]
 
 
 def get_total_indexed_docs(index_name="mcpverse"):
